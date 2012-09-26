@@ -1,0 +1,45 @@
+#!/bin/bash
+
+#
+# Run a command as the currently active X11 user 
+#
+# Assumes that systemd is running, and loginctl is present
+#
+
+seat="seat0"
+
+get_session_info() {
+  local session="$1"
+  local varname="$2"
+  local IFS=$'\n'
+  eval declare -Ag $varname 
+  for row in $(loginctl show-session "$session"); do
+    key="$(echo "${row}"|cut -d= -f1)"
+    val="$(echo "${row}"|cut -d= -f2-)"
+    eval ${varname}[\"${key}\"]=\"${val}\"
+  done
+}
+
+active_session="$(loginctl show-seat ${seat}|grep ActiveSession|cut -d= -f2)"
+if [[ $? -ne 0 || -z $active_session ]]; then
+  echo "Error: Unable to determine active session"
+  exit 1
+fi
+
+get_session_info $active_session session_info
+
+if [[ ${session_info[Type]} != "x11" ]]; then
+  echo "Error: Active session is not x11"
+  exit 2
+fi
+
+current_user="$(id -u -n)"
+
+if [[ ${current_user} == ${session_info[Name]} ]]; then
+  # already correct user, no need to su
+  DISPLAY="${session_info[Display]}" "$@"
+else
+  # run command as user 
+  DISPLAY="${session_info[Display]}" su -c - "${session_info[Name]}" "$*"
+fi
+
