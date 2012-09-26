@@ -3,10 +3,15 @@
 #
 # Run a command as the currently active X11 user 
 #
-# Assumes that systemd is running, and loginctl is present
-#
 
 seat="seat0"
+
+# determine location of loginctl
+LOGINCTL=$(command -v loginctl || command -v systemd-loginctl)
+if [[ -e LOGINCTL ]]; then
+  echo "Error: Unable to find loginctl executable"
+  exit 1
+fi
 
 get_session_info() {
   local session="$1"
