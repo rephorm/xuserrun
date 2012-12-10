@@ -25,6 +25,12 @@ get_session_info() {
   done
 }
 
+escape() { 
+  for arg in "$@" ; do 
+    printf "%q " "$arg" ; 
+  done; 
+}
+
 active_session="$(loginctl show-seat ${seat}|grep ActiveSession|cut -d= -f2)"
 if [[ $? -ne 0 || -z $active_session ]]; then
   echo "Error: Unable to determine active session"
@@ -45,6 +51,6 @@ if [[ ${current_user} == ${session_info[Name]} ]]; then
   DISPLAY="${session_info[Display]}" "$@"
 else
   # run command as user 
-  DISPLAY="${session_info[Display]}" su -c - "${session_info[Name]}" "$*"
+  DISPLAY="${session_info[Display]}" su -c - "${session_info[Name]}" "$(escape "$@")"
 fi
 
