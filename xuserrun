@@ -25,10 +25,10 @@ get_session_info() {
   done
 }
 
-escape() { 
-  for arg in "$@" ; do 
-    printf "%q " "$arg" ; 
-  done; 
+escape() {
+  for arg in "$@" ; do
+    printf "%q " "$arg";
+  done;
 }
 
 active_session="$(loginctl show-seat ${seat}|grep ActiveSession|cut -d= -f2)"
