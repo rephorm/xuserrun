@@ -7,10 +7,8 @@ seat="seat0"
 hash loginctl 2>&- || { echo >&2 " Program \"loginctl\" not installed"; exit; }
 
 # Input parameter(s) are executable check
-for p in "$@"; do
-  hash "$p" 2>&- || \
-  { echo >&2 " The specified \"$p\" is not a valid executable"; exit 1; }
-done
+hash "$1" 2>&- || \
+{ echo >&2 " The specified \"$1\" is not a valid executable"; exit 1; }
 
 # Search through active sessions for one that has the Display (X.org) value
 avail_sessions=$(loginctl show-seat $seat -p Sessions| cut -d= -f2)
@@ -23,16 +21,14 @@ for session in $avail_sessions; do
 done
 
 # Exit if no X.org server is running
-[ -z "$session_disp" ] && echo " No X.org server appears to be running" && exit
+[ -z "$session_disp" ] && echo " No X.org server appears to be running" && exit 2
 
-# Run command(s) as X.org server user
-for x in "$@"; do
-  if   [ $(whoami) = root ]; then
-    XAUTHORITY=/home/$session_name/.Xauthority DISPLAY="$session_disp" \
-    su -c - $session_name "$(printf "%q " "$x")" &
-  elif [ $(whoami) = $session_name ]; then
-    XAUTHORITY=/home/$session_name/.Xauthority DISPLAY="$session_disp" "$x" &
-  else
-    echo " User does not have X.org server permissions" && exit
-  fi
-done
+# Run command as X.org server user
+if   [ $(whoami) = root ]; then
+  XAUTHORITY=/home/$session_name/.Xauthority DISPLAY="$session_disp" \
+  su -c - $session_name "$(printf "%q " "$@")" &
+elif [ $(whoami) = $session_name ]; then
+  eval XAUTHORITY=/home/$session_name/.Xauthority DISPLAY="$session_disp" "$@" &
+else
+  echo " User does not have X.org server permissions" && exit
+fi
