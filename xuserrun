@@ -1,56 +1,38 @@
 #!/bin/bash
-
-#
-# Run a command as the currently active X11 user 
-#
+# Run a command as the currently active X.org server user 
 
 seat="seat0"
 
-# determine location of loginctl
-LOGINCTL=$(command -v loginctl || command -v systemd-loginctl)
-if [[ -e LOGINCTL ]]; then
-  echo "Error: Unable to find loginctl executable"
-  exit 1
-fi
+# Program required check
+hash loginctl 2>&- || { echo >&2 " Program \"loginctl\" not installed"; exit; }
 
-get_session_info() {
-  local session="$1"
-  local varname="$2"
-  local IFS=$'\n'
-  eval declare -Ag $varname 
-  for row in $(loginctl show-session "$session"); do
-    key="$(echo "${row}"|cut -d= -f1)"
-    val="$(echo "${row}"|cut -d= -f2-)"
-    eval ${varname}[\"${key}\"]=\"${val}\"
-  done
-}
+# Input parameter(s) are executable check
+for p in "$@"; do
+  hash "$p" 2>&- || \
+  { echo >&2 " The specified \"$p\" is not a valid executable"; exit 1; }
+done
 
-escape() {
-  for arg in "$@" ; do
-    printf "%q " "$arg";
-  done;
-}
+# Search through active sessions for one that has the Display (X.org) value
+avail_sessions=$(loginctl show-seat $seat -p Sessions| cut -d= -f2)
+for session in $avail_sessions; do
+  session_disp=$(loginctl show-session $session -p Display | cut -d= -f2)
+  session_name=$(loginctl show-session $session -p Name    | cut -d= -f2)
+  if [ -z $session_disp ]; then continue
+  else break
+  fi
+done
 
-active_session="$(loginctl show-seat ${seat}|grep ActiveSession|cut -d= -f2)"
-if [[ $? -ne 0 || -z $active_session ]]; then
-  echo "Error: Unable to determine active session"
-  exit 1
-fi
+# Exit if no X.org server is running
+[ -z "$session_disp" ] && echo " No X.org server appears to be running" && exit
 
-get_session_info $active_session session_info
-
-if [[ ${session_info[Type]} != "x11" ]]; then
-  echo "Error: Active session is not x11"
-  exit 2
-fi
-
-current_user="$(id -u -n)"
-
-if [[ ${current_user} == ${session_info[Name]} ]]; then
-  # already correct user, no need to su
-  DISPLAY="${session_info[Display]}" "$@"
-else
-  # run command as user 
-  DISPLAY="${session_info[Display]}" su -c - "${session_info[Name]}" "$(escape "$@")"
-fi
-
+# Run command(s) as X.org server user
+for x in "$@"; do
+  if   [ $(whoami) = root ]; then
+    XAUTHORITY=/home/$session_name/.Xauthority DISPLAY="$session_disp" \
+    su -c - $session_name "$(printf "%q " "$x")" &
+  elif [ $(whoami) = $session_name ]; then
+    XAUTHORITY=/home/$session_name/.Xauthority DISPLAY="$session_disp" "$x" &
+  else
+    echo " User does not have X.org server permissions" && exit
+  fi
+done
