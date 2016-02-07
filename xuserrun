@@ -45,12 +45,13 @@ if [[ ${session_info[Type]} != "x11" ]]; then
 fi
 
 current_user="$(id -u -n)"
+dbus_path="unix:path=/run/user/${session_info[User]}/bus"
 
 if [[ ${current_user} == ${session_info[Name]} ]]; then
   # already correct user, no need to su
-  DISPLAY="${session_info[Display]}" "$@"
+  DISPLAY="${session_info[Display]}" DBUS_SESSION_BUS_ADDRESS="$dbus_path" "$@"
 else
   # run command as user 
-  DISPLAY="${session_info[Display]}" su -c - "${session_info[Name]}" "$(escape "$@")"
+  sudo -u "${session_info[Name]}" DISPLAY="${session_info[Display]}" DBUS_SESSION_BUS_ADDRESS="$dbus_path" "$@"
 fi
 
