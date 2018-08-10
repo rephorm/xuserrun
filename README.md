@@ -22,7 +22,7 @@ setting the DISPLAY variable appropriately.
 Example Usage
 -------------
 
-On arch-linux, ACPI events are handled by `/etc/acpid/handler.sh`, which runs as root. To send notifications the the current user, add a line to this script like:
+On arch-linux, ACPI events are handled by `/etc/acpid/handler.sh`, which runs as root. To send notifications to the current user, add a line to this script like:
 
     /path/to/xuserrun notify-send "AC Adapter" "Plugged in"
 
